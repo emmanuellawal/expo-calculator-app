@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { detectConversion, formatConversionResult } from '@/utils/conversionHelper';
+import { Ionicons } from '@expo/vector-icons';
 import type { HistoryItem } from './history';
 
 // Create a context for history
@@ -38,7 +40,38 @@ const Calculator: React.FC = () => {
   const [isNewNumber, setIsNewNumber] = useState<boolean>(true);
   const [previousNumber, setPreviousNumber] = useState<string>("");
   const [currentOperator, setCurrentOperator] = useState<string>("");
+  const [conversionMode, setConversionMode] = useState<boolean>(false);
+  const [conversionInput, setConversionInput] = useState<string>("");
   const { addToHistory } = React.useContext(CalculationHistoryContext);
+
+  const handleConversionInput = () => {
+    if (!conversionInput.trim()) return;
+
+    try {
+      const result = detectConversion(conversionInput, display);
+      if (result) {
+        setDisplay(result.result.toString());
+        setEquation(formatConversionResult(result));
+        addToHistory({
+          expression: conversionInput,
+          result: formatConversionResult(result),
+          timestamp: new Date(),
+        });
+      } else {
+        if (!display || display === "0") {
+          setDisplay("No value to convert");
+        } else {
+          setDisplay("Invalid conversion - try 'feet to inches'");
+        }
+        setTimeout(() => setDisplay(display), 2000);
+      }
+    } catch (error) {
+      console.error('Conversion error:', error);
+      setDisplay("Error in conversion");
+      setTimeout(() => setDisplay(display), 2000);
+    }
+    setConversionInput("");
+  };
 
   const handleNumber = (num: string) => {
     if (isNewNumber) {
@@ -191,40 +224,78 @@ const Calculator: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.display}>
           <View style={styles.displayCard}>
+            {conversionMode && (
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => setConversionMode(false)}>
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
             <Text style={styles.equation}>{equation}</Text>
             <Text style={styles.current}>{display}</Text>
+            {conversionMode && (
+              <View style={styles.conversionInput}>
+                <TextInput
+                  style={styles.input}
+                  value={conversionInput}
+                  onChangeText={setConversionInput}
+                  placeholder="E.g., feet to inches"
+                  placeholderTextColor="#B8C6DB"
+                  onSubmitEditing={handleConversionInput}
+                />
+                <TouchableOpacity 
+                  style={styles.convertButton}
+                  onPress={handleConversionInput}>
+                  <Text style={styles.convertButtonText}>Convert</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
         <View style={styles.keypad}>
-          <View style={styles.row}>
-            {renderButton('C', 'function')}
-            {renderButton('±', 'function')}
-            {renderButton('%', 'function')}
-            {renderButton('÷', 'operator')}
-          </View>
-          <View style={styles.row}>
-            {renderButton('7')}
-            {renderButton('8')}
-            {renderButton('9')}
-            {renderButton('×', 'operator')}
-          </View>
-          <View style={styles.row}>
-            {renderButton('4')}
-            {renderButton('5')}
-            {renderButton('6')}
-            {renderButton('-', 'operator')}
-          </View>
-          <View style={styles.row}>
-            {renderButton('1')}
-            {renderButton('2')}
-            {renderButton('3')}
-            {renderButton('+', 'operator')}
-          </View>
-          <View style={styles.row}>
-            {renderButton('0')}
-            {renderButton('.')}
-            {renderButton('=', 'operator')}
-          </View>
+          {!conversionMode ? (
+            <>
+              <View style={styles.row}>
+                <TouchableOpacity 
+                  style={[styles.button, styles.functionButton]}
+                  onPress={() => setConversionMode(!conversionMode)}>
+                  <LinearGradient
+                    colors={['#1E90FF', '#0066FF']}
+                    style={styles.buttonGradient}>
+                    <Text style={[styles.buttonText, styles.functionText]}>
+                      Conv
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                {renderButton('C', 'function')}
+                {renderButton('±', 'function')}
+                {renderButton('÷', 'operator')}
+              </View>
+              <View style={styles.row}>
+                {renderButton('7')}
+                {renderButton('8')}
+                {renderButton('9')}
+                {renderButton('×', 'operator')}
+              </View>
+              <View style={styles.row}>
+                {renderButton('4')}
+                {renderButton('5')}
+                {renderButton('6')}
+                {renderButton('-', 'operator')}
+              </View>
+              <View style={styles.row}>
+                {renderButton('1')}
+                {renderButton('2')}
+                {renderButton('3')}
+                {renderButton('+', 'operator')}
+              </View>
+              <View style={styles.row}>
+                {renderButton('0')}
+                {renderButton('.')}
+                {renderButton('=', 'operator')}
+              </View>
+            </>
+          ) : null}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -249,18 +320,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     backdropFilter: 'blur(10px)',
+    position: 'relative',
   },
   equation: {
     color: '#B8C6DB',
-    fontSize: 24,
+    fontSize: 28,
     marginBottom: 8,
     fontFamily: 'System',
     textAlign: 'right',
   },
   current: {
     color: '#FFFFFF',
-    fontSize: 48,
-    fontWeight: 'bold',
+    fontSize: 52,
+    fontWeight: '600',
     fontFamily: 'System',
     textAlign: 'right',
   },
@@ -291,6 +363,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 5,
+    width: '100%',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    textAlign: 'center',
+    fontFamily: 'System',
   },
   operatorButton: {
     elevation: 8,
@@ -301,19 +385,64 @@ const styles = StyleSheet.create({
   zeroButton: {
     width: '48%',
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '600',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
   operatorText: {
     fontSize: 32,
+    fontWeight: '600',
   },
   functionText: {
-    fontSize: 24,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  conversionInput: {
+    marginTop: 10,
+    width: '100%',
+  },
+  input: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 10,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 18,
+    marginBottom: 10,
+    fontFamily: 'System',
+  },
+  convertButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  convertButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    fontFamily: 'System',
+  },
+  centeredRow: {
+    justifyContent: 'center',
+  },
+  conversionModeButton: {
+    width: '30%',
+    aspectRatio: 2,
+  },
+  conversionButtonText: {
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    flexShrink: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
