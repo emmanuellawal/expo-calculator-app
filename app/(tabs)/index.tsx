@@ -35,6 +35,12 @@ export const CalculationHistoryProvider: React.FC<{ children: React.ReactNode }>
   );
 };
 
+type ButtonColors = {
+  background: string;
+  text: string;
+  gradient: readonly [string, string];
+};
+
 const Calculator: React.FC = () => {
   const [display, setDisplay] = useState<string>("0");
   const [equation, setEquation] = useState<string>("");
@@ -44,6 +50,7 @@ const Calculator: React.FC = () => {
   const [conversionMode, setConversionMode] = useState<boolean>(false);
   const [conversionInput, setConversionInput] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [scientificMode, setScientificMode] = useState<boolean>(false);
   const { addToHistory } = React.useContext(CalculationHistoryContext);
 
   // Handle copying the display value to clipboard
@@ -130,6 +137,13 @@ const Calculator: React.FC = () => {
         if (num2 === 0) return "Error";
         result = (num1 / num2).toString();
         break;
+      case "^":
+        result = Math.pow(num1, num2).toString();
+        break;
+      case "(":
+      case ")":
+        // Handle parentheses in a more complex expression parser
+        return "Error";
       default:
         return "Error";
     }
@@ -189,60 +203,162 @@ const Calculator: React.FC = () => {
     setDisplay((num / 100).toString());
   };
 
-  const renderButton = (text: string, type: 'number' | 'operator' | 'function' = 'number') => (
-    <TouchableOpacity
-      style={[
-        styles.button,
-        type === 'operator' && styles.operatorButton,
-        type === 'function' && styles.functionButton,
-        text === '0' && styles.zeroButton,
-      ]}
-      onPress={() => {
+  // Scientific calculator functions
+  const handleSin = () => {
+    const num = parseFloat(display);
+    setDisplay(Math.sin(num * (Math.PI / 180)).toString());
+  };
+
+  const handleCos = () => {
+    const num = parseFloat(display);
+    setDisplay(Math.cos(num * (Math.PI / 180)).toString());
+  };
+
+  const handleTan = () => {
+    const num = parseFloat(display);
+    setDisplay(Math.tan(num * (Math.PI / 180)).toString());
+  };
+
+  const handleLog = () => {
+    const num = parseFloat(display);
+    if (num <= 0) {
+      setDisplay("Error");
+      return;
+    }
+    setDisplay(Math.log10(num).toString());
+  };
+
+  const handleLn = () => {
+    const num = parseFloat(display);
+    if (num <= 0) {
+      setDisplay("Error");
+      return;
+    }
+    setDisplay(Math.log(num).toString());
+  };
+
+  const handlePower = () => {
+    if (currentOperator === '') {
+      setPreviousNumber(display);
+      setCurrentOperator("^");
+      setIsNewNumber(true);
+      setEquation(display + " ^ ");
+    }
+  };
+
+  const handleSquareRoot = () => {
+    const num = parseFloat(display);
+    if (num < 0) {
+      setDisplay("Error");
+      return;
+    }
+    setDisplay(Math.sqrt(num).toString());
+  };
+
+  const handlePi = () => {
+    setDisplay(Math.PI.toString());
+    setIsNewNumber(true);
+  };
+
+  const handleExp = () => {
+    setDisplay((parseFloat(display) === 0) ? "1" : Math.exp(parseFloat(display)).toString());
+    setIsNewNumber(true);
+  };
+
+  const getButtonColors = (type: string): ButtonColors => {
+    switch (type) {
+      case 'number':
+        return {
+          background: '#2D2D2D',
+          text: '#FFFFFF',
+          gradient: ['rgba(100, 100, 100, 0.5)', 'rgba(50, 50, 50, 0.5)'] as const
+        };
+      case 'operator':
+        return {
+          background: '#F1A33C',
+          text: '#FFFFFF',
+          gradient: ['rgba(255, 187, 85, 0.5)', 'rgba(241, 163, 60, 0.5)'] as const
+        };
+      case 'function':
+        return {
+          background: '#A5A5A5',
+          text: '#000000',
+          gradient: ['rgba(187, 187, 187, 0.5)', 'rgba(165, 165, 165, 0.5)'] as const
+        };
+      default:
+        return {
+          background: '#2D2D2D',
+          text: '#FFFFFF',
+          gradient: ['rgba(100, 100, 100, 0.5)', 'rgba(50, 50, 50, 0.5)'] as const
+        };
+    }
+  };
+
+  const handleButtonPress = (value: string, type: string) => {
         switch (type) {
           case 'number':
-            handleNumber(text);
+        handleNumber(value);
             break;
           case 'operator':
-            if (text === '×') {
+        if (value === '×') {
               handleOperator('*');
-            } else if (text === '÷') {
+        } else if (value === '÷') {
               handleOperator('/');
-            } else if (text === '=') {
+        } else if (value === '=') {
               handleEqual();
             } else {
-              handleOperator(text);
+          handleOperator(value);
             }
             break;
           case 'function':
-            if (text === 'C') {
+        if (value === 'C') {
               handleClear();
-            } else if (text === '±') {
+        } else if (value === '±') {
               handleToggleSign();
-            } else if (text === '%') {
+        } else if (value === '%') {
               handlePercent();
+        } else if (value === 'sin') {
+          handleSin();
+        } else if (value === 'cos') {
+          handleCos();
+        } else if (value === 'tan') {
+          handleTan();
+        } else if (value === 'log') {
+          handleLog();
+        } else if (value === 'ln') {
+          handleLn();
+        } else if (value === 'xʸ') {
+          handlePower();
+        } else if (value === '√') {
+          handleSquareRoot();
+        } else if (value === 'π') {
+          handlePi();
+        } else if (value === 'eˣ') {
+          handleExp();
             }
             break;
         }
-      }}>
+  };
+
+  const renderButton = (value: string, type: string = 'number') => {
+    const colors = getButtonColors(type);
+    return (
+      <TouchableOpacity
+        style={[
+          scientificMode && value.length > 1 ? styles.scientificButton : styles.button,
+          { backgroundColor: colors.background }
+        ]}
+        onPress={() => handleButtonPress(value, type)}
+      >
       <LinearGradient
-        colors={
-          type === 'operator' 
-            ? ['#FF6B6B', '#EE5D5D'] 
-            : type === 'function'
-            ? ['#4A90E2', '#357ABD']
-            : ['#2C3E50', '#34495E']
-        }
-        style={styles.buttonGradient}>
-        <Text style={[
-          styles.buttonText,
-          type === 'operator' && styles.operatorText,
-          type === 'function' && styles.functionText,
-        ]}>
-          {text}
-        </Text>
+          colors={colors.gradient}
+          style={styles.buttonGradient}
+        >
+          <Text style={[styles.buttonText, { color: colors.text }]}>{value}</Text>
       </LinearGradient>
     </TouchableOpacity>
   );
+  };
 
   return (
     <LinearGradient
@@ -263,8 +379,8 @@ const Calculator: React.FC = () => {
               onLongPress={copyToClipboard}
               delayLongPress={500}
               style={styles.displayTextContainer}>
-              <Text style={styles.current}>{display}</Text>
-            </TouchableOpacity>
+            <Text style={styles.current}>{display}</Text>
+                </TouchableOpacity>
           </View>
         </View>
         <View style={styles.keypad}>
@@ -282,10 +398,68 @@ const Calculator: React.FC = () => {
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.button, styles.functionButton]}
+                  onPress={() => setScientificMode(!scientificMode)}>
+                  <LinearGradient
+                    colors={['#9370DB', '#7B68EE']}
+                    style={styles.buttonGradient}>
+                    <Text style={[styles.buttonText, styles.functionText]}>
+                      {scientificMode ? "Std" : "Sci"}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
                 {renderButton('C', 'function')}
-                {renderButton('±', 'function')}
                 {renderButton('÷', 'operator')}
               </View>
+              
+              {scientificMode ? (
+                <>
+                  <View style={styles.scientificRow}>
+                    {renderButton('sin', 'function')}
+                    {renderButton('cos', 'function')}
+                    {renderButton('tan', 'function')}
+                    {renderButton('×', 'operator')}
+                  </View>
+                  <View style={styles.scientificRow}>
+                    {renderButton('log', 'function')}
+                    {renderButton('ln', 'function')}
+                    {renderButton('xʸ', 'function')}
+                    {renderButton('-', 'operator')}
+                  </View>
+                  <View style={styles.scientificRow}>
+                    {renderButton('√', 'function')}
+                    {renderButton('π', 'function')}
+                    {renderButton('eˣ', 'function')}
+                    {renderButton('+', 'operator')}
+                  </View>
+                  <View style={styles.scientificRow}>
+                    {renderButton('(', 'operator')}
+                    {renderButton(')', 'operator')}
+                    {renderButton('±', 'function')}
+                    {renderButton('%', 'function')}
+                  </View>
+                  <View style={styles.row}>
+                    {renderButton('7')}
+                    {renderButton('8')}
+                    {renderButton('9')}
+                    {renderButton('=', 'operator')}
+                  </View>
+                  <View style={styles.row}>
+                    {renderButton('4')}
+                    {renderButton('5')}
+                    {renderButton('6')}
+                    {renderButton('.')}
+                  </View>
+                  <View style={styles.row}>
+                    {renderButton('1')}
+                    {renderButton('2')}
+                    {renderButton('3')}
+                    {renderButton('0')}
+                  </View>
+                </>
+              ) : (
+                <>
               <View style={styles.row}>
                 {renderButton('7')}
                 {renderButton('8')}
@@ -305,10 +479,20 @@ const Calculator: React.FC = () => {
                 {renderButton('+', 'operator')}
               </View>
               <View style={styles.row}>
-                {renderButton('0')}
+                <TouchableOpacity
+                  style={[styles.button, styles.zeroButton, { backgroundColor: getButtonColors('number').background }]}
+                  onPress={() => handleButtonPress('0', 'number')}>
+                  <LinearGradient
+                    colors={getButtonColors('number').gradient}
+                    style={styles.buttonGradient}>
+                    <Text style={[styles.buttonText, { color: getButtonColors('number').text }]}>0</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
                 {renderButton('.')}
                 {renderButton('=', 'operator')}
               </View>
+            </>
+              )}
             </>
           ) : (
             <>
@@ -826,9 +1010,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 15,
   },
+  scientificRow: {
+    flex: 0.7,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   button: {
     width: '23%',
     aspectRatio: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  scientificButton: {
+    width: '23%',
+    aspectRatio: 1.5,
     borderRadius: 15,
     overflow: 'hidden',
     elevation: 5,

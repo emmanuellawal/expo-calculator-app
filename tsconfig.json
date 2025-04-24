@@ -6,7 +6,9 @@
     "paths": {
       "@/*": ["./*"],
       "~/*": ["./app/*"]
-    }
+    },
+    "jsx": "react-jsx",
+    "esModuleInterop": true
   },
   "include": [
     "**/*.ts",
