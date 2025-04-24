@@ -12,6 +12,7 @@ const unitNormalization: { [key: string]: string } = {
   'km': 'kilometers',
   'kilometer': 'kilometers',
   'mile': 'miles',
+  'mi': 'miles',
   'm': 'meters',
   'meter': 'meters',
   'cm': 'centimeters',
@@ -51,7 +52,46 @@ const unitNormalization: { [key: string]: string } = {
   'gal': 'gallons',
   'gallon': 'gallons',
   'ml': 'milliliters',
-  'milliliter': 'milliliters'
+  'milliliter': 'milliliters',
+  'cup': 'cups',
+  'cups': 'cups',
+  
+  // Area
+  'm2': 'squaremeters',
+  'm²': 'squaremeters',
+  'square meter': 'squaremeters',
+  'square meters': 'squaremeters',
+  'ft2': 'squarefeet',
+  'ft²': 'squarefeet',
+  'square foot': 'squarefeet',
+  'square feet': 'squarefeet',
+  'acre': 'acres',
+  'acres': 'acres',
+  'ha': 'hectares',
+  'hectare': 'hectares',
+  'hectares': 'hectares',
+  
+  // Speed
+  'mph': 'milesperhour',
+  'miles per hour': 'milesperhour',
+  'kph': 'kilometersperhour',
+  'kmh': 'kilometersperhour',
+  'km/h': 'kilometersperhour',
+  'kilometers per hour': 'kilometersperhour',
+  
+  // Data
+  'kb': 'kilobytes',
+  'kilobyte': 'kilobytes',
+  'kilobytes': 'kilobytes',
+  'mb': 'megabytes',
+  'megabyte': 'megabytes',
+  'megabytes': 'megabytes',
+  'gb': 'gigabytes',
+  'gigabyte': 'gigabytes',
+  'gigabytes': 'gigabytes',
+  'tb': 'terabytes',
+  'terabyte': 'terabytes',
+  'terabytes': 'terabytes',
 };
 
 const conversions: { [key: string]: { [key: string]: (val: number) => number } } = {
@@ -121,14 +161,74 @@ const conversions: { [key: string]: { [key: string]: (val: number) => number } }
   liters: {
     gallons: (val) => val * 0.264172,
     milliliters: (val) => val * 1000,
+    cups: (val) => val * 4.22675,
   },
   gallons: {
     liters: (val) => val / 0.264172,
     milliliters: (val) => val * 3785.41,
+    cups: (val) => val * 16,
   },
   milliliters: {
     liters: (val) => val / 1000,
     gallons: (val) => val / 3785.41,
+    cups: (val) => val / 236.588,
+  },
+  cups: {
+    milliliters: (val) => val * 236.588,
+    liters: (val) => val / 4.22675,
+    gallons: (val) => val / 16,
+  },
+  
+  // Area
+  squaremeters: {
+    squarefeet: (val) => val * 10.7639,
+    acres: (val) => val * 0.000247105,
+    hectares: (val) => val * 0.0001,
+  },
+  squarefeet: {
+    squaremeters: (val) => val / 10.7639,
+    acres: (val) => val * 0.0000229568,
+    hectares: (val) => val * 0.00000929,
+  },
+  acres: {
+    squaremeters: (val) => val / 0.000247105,
+    squarefeet: (val) => val / 0.0000229568,
+    hectares: (val) => val * 0.404686,
+  },
+  hectares: {
+    squaremeters: (val) => val / 0.0001,
+    squarefeet: (val) => val / 0.00000929,
+    acres: (val) => val / 0.404686,
+  },
+  
+  // Speed
+  milesperhour: {
+    kilometersperhour: (val) => val * 1.60934,
+  },
+  kilometersperhour: {
+    milesperhour: (val) => val / 1.60934,
+  },
+  
+  // Data
+  kilobytes: {
+    megabytes: (val) => val / 1024,
+    gigabytes: (val) => val / (1024 * 1024),
+    terabytes: (val) => val / (1024 * 1024 * 1024),
+  },
+  megabytes: {
+    kilobytes: (val) => val * 1024,
+    gigabytes: (val) => val / 1024,
+    terabytes: (val) => val / (1024 * 1024),
+  },
+  gigabytes: {
+    kilobytes: (val) => val * 1024 * 1024,
+    megabytes: (val) => val * 1024,
+    terabytes: (val) => val / 1024,
+  },
+  terabytes: {
+    kilobytes: (val) => val * 1024 * 1024 * 1024,
+    megabytes: (val) => val * 1024 * 1024,
+    gigabytes: (val) => val * 1024,
   },
 };
 

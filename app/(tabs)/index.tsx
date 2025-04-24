@@ -1,12 +1,17 @@
-import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, TextInput } from 'react-native';
+import React, { useState, createContext } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, Alert, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { detectConversion, formatConversionResult } from '@/utils/conversionHelper';
 import { Ionicons } from '@expo/vector-icons';
-import type { HistoryItem } from './history';
+import * as Clipboard from 'expo-clipboard';
 
-// Create a context for history
-export const CalculationHistoryContext = React.createContext<{
+export type HistoryItem = {
+  expression: string;
+  result: string;
+  timestamp: Date;
+};
+
+export const CalculationHistoryContext = createContext<{
   history: HistoryItem[];
   addToHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
@@ -18,17 +23,13 @@ export const CalculationHistoryContext = React.createContext<{
 
 export const CalculationHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
-
-  const addToHistory = (item: HistoryItem) => {
-    setHistory(prev => [item, ...prev]);
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-  };
-
   return (
-    <CalculationHistoryContext.Provider value={{ history, addToHistory, clearHistory }}>
+    <CalculationHistoryContext.Provider 
+      value={{
+        history,
+        addToHistory: (item) => setHistory(prev => [item, ...prev]),
+        clearHistory: () => setHistory([])
+      }}>
       {children}
     </CalculationHistoryContext.Provider>
   );
@@ -42,7 +43,33 @@ const Calculator: React.FC = () => {
   const [currentOperator, setCurrentOperator] = useState<string>("");
   const [conversionMode, setConversionMode] = useState<boolean>(false);
   const [conversionInput, setConversionInput] = useState<string>("");
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const { addToHistory } = React.useContext(CalculationHistoryContext);
+
+  // Handle copying the display value to clipboard
+  const copyToClipboard = async () => {
+    try {
+      await Clipboard.setStringAsync(display);
+      Alert.alert("Copied", `Value ${display} copied to clipboard`);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+    }
+  };
+
+  // Handle pasting from clipboard
+  const pasteFromClipboard = async () => {
+    try {
+      const clipboardContent = await Clipboard.getStringAsync();
+      if (clipboardContent && !isNaN(parseFloat(clipboardContent))) {
+        setDisplay(clipboardContent);
+        setIsNewNumber(true);
+      } else {
+        Alert.alert("Invalid Paste", "Clipboard does not contain a valid number");
+      }
+    } catch (error) {
+      console.error('Failed to paste from clipboard:', error);
+    }
+  };
 
   const handleConversionInput = () => {
     if (!conversionInput.trim()) return;
@@ -232,24 +259,12 @@ const Calculator: React.FC = () => {
               </TouchableOpacity>
             )}
             <Text style={styles.equation}>{equation}</Text>
-            <Text style={styles.current}>{display}</Text>
-            {conversionMode && (
-              <View style={styles.conversionInput}>
-                <TextInput
-                  style={styles.input}
-                  value={conversionInput}
-                  onChangeText={setConversionInput}
-                  placeholder="E.g., feet to inches"
-                  placeholderTextColor="#B8C6DB"
-                  onSubmitEditing={handleConversionInput}
-                />
-                <TouchableOpacity 
-                  style={styles.convertButton}
-                  onPress={handleConversionInput}>
-                  <Text style={styles.convertButtonText}>Convert</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <TouchableOpacity 
+              onLongPress={copyToClipboard}
+              delayLongPress={500}
+              style={styles.displayTextContainer}>
+              <Text style={styles.current}>{display}</Text>
+            </TouchableOpacity>
           </View>
         </View>
         <View style={styles.keypad}>
@@ -295,7 +310,473 @@ const Calculator: React.FC = () => {
                 {renderButton('=', 'operator')}
               </View>
             </>
-          ) : null}
+          ) : (
+            <>
+              <TextInput
+                style={styles.conversionInput}
+                value={conversionInput}
+                onChangeText={setConversionInput}
+                placeholder="E.g. feet to inches"
+                placeholderTextColor="#B8C6DB"
+                onSubmitEditing={handleConversionInput}
+              />
+              <View style={styles.conversionContentWrapper}>
+                <ScrollView style={styles.conversionScrollView}>
+                  <View style={styles.conversionButtonsContainer}>
+                    <Text style={styles.conversionCategoryHeader}>Length</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} meters to feet`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("meters to feet");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>m → ft</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} feet to meters`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("feet to meters");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>ft → m</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} km to miles`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("km to miles");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>km → mi</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} miles to km`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("miles to km");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>mi → km</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Weight</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} kg to lbs`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("kg to lbs");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>kg → lb</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} lbs to kg`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("lbs to kg");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>lb → kg</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} grams to ounces`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("grams to ounces");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>g → oz</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} ounces to grams`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("ounces to grams");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>oz → g</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Temperature</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} celsius to fahrenheit`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("celsius to fahrenheit");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>°C → °F</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} fahrenheit to celsius`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("fahrenheit to celsius");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>°F → °C</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Volume</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} liters to gallons`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("liters to gallons");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>L → gal</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} gallons to liters`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("gallons to liters");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>gal → L</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} milliliters to cups`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("milliliters to cups");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>mL → cup</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} cups to milliliters`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("cups to milliliters");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>cup → mL</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Area</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} square meters to square feet`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("square meters to square feet");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>m² → ft²</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} square feet to square meters`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("square feet to square meters");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>ft² → m²</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} acres to hectares`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("acres to hectares");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>acre → ha</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} hectares to acres`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("hectares to acres");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>ha → acre</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Speed</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} mph to kph`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("mph to kph");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>mph → km/h</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} kph to mph`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("kph to mph");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>km/h → mph</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.conversionCategoryHeader}>Data</Text>
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} MB to GB`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("MB to GB");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>MB → GB</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} GB to MB`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("GB to MB");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>GB → MB</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.conversionRow}>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} KB to MB`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("KB to MB");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>KB → MB</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.conversionButton}
+                        onPress={() => {
+                          if (display && display !== "0") {
+                            setConversionInput(`${display} TB to GB`);
+                            handleConversionInput();
+                          } else {
+                            setConversionInput("TB to GB");
+                          }
+                        }}>
+                        <LinearGradient
+                          colors={['#4A90E2', '#357ABD']}
+                          style={styles.buttonGradient}>
+                          <Text style={styles.conversionButtonText}>TB → GB</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+                <View style={styles.fixedButtonsContainer}>
+                  <TouchableOpacity 
+                    style={[styles.conversionButton, styles.fixedButton]}
+                    onPress={() => {
+                      handleClear();
+                      setConversionMode(false);
+                    }}>
+                    <LinearGradient
+                      colors={['#FF6B6B', '#EE5D5D']}
+                      style={styles.buttonGradient}>
+                      <Text style={styles.conversionButtonText}>Cancel</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.conversionButton, styles.fixedButton]}
+                    onPress={handleConversionInput}>
+                    <LinearGradient
+                      colors={['#32CD32', '#2E8B57']}
+                      style={styles.buttonGradient}>
+                      <Text style={styles.conversionButtonText}>Convert</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -393,44 +874,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
   },
-  conversionInput: {
-    marginTop: 10,
+  displayTextContainer: {
     width: '100%',
-  },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 10,
-    padding: 12,
-    color: '#FFFFFF',
-    fontSize: 18,
-    marginBottom: 10,
-    fontFamily: 'System',
-  },
-  convertButton: {
-    backgroundColor: '#4A90E2',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-  },
-  convertButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'System',
-  },
-  centeredRow: {
-    justifyContent: 'center',
-  },
-  conversionModeButton: {
-    width: '30%',
-    aspectRatio: 2,
-  },
-  conversionButtonText: {
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    flexShrink: 1,
+    paddingVertical: 10,
   },
   backButton: {
     position: 'absolute',
@@ -443,6 +889,80 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  conversionInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#B8C6DB',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    color: '#FFFFFF',
+    fontSize: 16,
+  },
+  conversionScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  conversionButtonsContainer: {
+    width: '100%',
+    paddingBottom: 10,
+  },
+  conversionContentWrapper: {
+    flex: 1,
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  fixedButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 10,
+    height: 60,
+  },
+  fixedButton: {
+    height: 60,
+  },
+  conversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    height: 60,
+  },
+  conversionButton: {
+    width: '48%',
+    height: '100%',
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  conversionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  conversionCategoryHeader: {
+    color: '#B8C6DB',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 5,
   },
 });
 
