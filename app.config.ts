@@ -43,7 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       origin: false
     },
     eas: {
-      projectId: 'your-project-id'
+      projectId: 'e8c296df-c443-4a97-a88d-24a139b175a7'
     },
     openaiApiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY
   },

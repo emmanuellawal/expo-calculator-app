@@ -342,10 +342,12 @@ const Calculator: React.FC = () => {
 
   const renderButton = (value: string, type: string = 'number') => {
     const colors = getButtonColors(type);
+    const isScientificButton = scientificMode && value.length > 1;
+    
     return (
       <TouchableOpacity
         style={[
-          scientificMode && value.length > 1 ? styles.scientificButton : styles.button,
+          isScientificButton ? styles.scientificButton : styles.button,
           { backgroundColor: colors.background }
         ]}
         onPress={() => handleButtonPress(value, type)}
@@ -354,7 +356,16 @@ const Calculator: React.FC = () => {
           colors={colors.gradient}
           style={styles.buttonGradient}
         >
-          <Text style={[styles.buttonText, { color: colors.text }]}>{value}</Text>
+          <Text 
+            style={[
+              styles.buttonText, 
+              { color: colors.text },
+              isScientificButton && { fontSize: 18 },
+              type === 'function' && (isScientificButton ? styles.scientificFunctionText : styles.functionText)
+            ]}
+          >
+            {value}
+          </Text>
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -365,7 +376,7 @@ const Calculator: React.FC = () => {
       colors={['#141E30', '#243B55']}
       style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.display}>
+        <View style={[styles.display, scientificMode && { flex: 1.5 }]}>
           <View style={styles.displayCard}>
             {conversionMode && (
               <TouchableOpacity 
@@ -383,7 +394,7 @@ const Calculator: React.FC = () => {
                 </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.keypad}>
+        <View style={[styles.keypad, scientificMode && { flex: 4 }]}>
           {!conversionMode ? (
             <>
               <View style={styles.row}>
@@ -1003,6 +1014,7 @@ const styles = StyleSheet.create({
   },
   keypad: {
     flex: 3,
+    marginTop: scientificMode ? 10 : 0,
   },
   row: {
     flex: 1,
@@ -1011,10 +1023,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   scientificRow: {
-    flex: 0.7,
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
+    height: 45,
   },
   button: {
     width: '23%',
@@ -1032,7 +1045,7 @@ const styles = StyleSheet.create({
   },
   scientificButton: {
     width: '23%',
-    aspectRatio: 1.5,
+    height: 40,
     borderRadius: 15,
     overflow: 'hidden',
     elevation: 5,
@@ -1076,6 +1089,10 @@ const styles = StyleSheet.create({
   },
   functionText: {
     fontSize: 20,
+    fontWeight: '600',
+  },
+  scientificFunctionText: {
+    fontSize: 16,
     fontWeight: '600',
   },
   displayTextContainer: {
