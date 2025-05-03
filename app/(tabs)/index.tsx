@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   display: {
-    flex: 2,
+    flex: 1,
     justifyContent: 'flex-end',
     marginBottom: 20,
   },
